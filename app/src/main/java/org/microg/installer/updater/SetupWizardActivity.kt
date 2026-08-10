@@ -17,6 +17,7 @@
 package org.microg.installer.updater
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -35,19 +36,39 @@ class SetupWizardActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (isOfficialGAppsInstalled()) {
+            setAppLauncherEnabled(false)
+            setResult(Activity.RESULT_OK)
+            finish()
+            return
+        }
+
         binding = ActivitySetupWizardBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val isGAppsInstalled = isOfficialGAppsInstalled()
         val isMicroGInstalled = isMicroGInstalled()
 
-        if (isGAppsInstalled) {
-            setupGAppsDetectedUi()
-        } else if (isMicroGInstalled) {
+        if (isMicroGInstalled) {
+            setAppLauncherEnabled(true)
             setupMicroGDetectedUi()
         } else {
             setupCleanInstallUi()
         }
+    }
+
+    private fun setAppLauncherEnabled(enabled: Boolean) {
+        val componentName = ComponentName(this, MainActivity::class.java)
+        val state = if (enabled) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
+        packageManager.setComponentEnabledSetting(
+            componentName,
+            state,
+            PackageManager.DONT_KILL_APP
+        )
     }
 
     private fun isOfficialGAppsInstalled(): Boolean {
@@ -70,19 +91,6 @@ class SetupWizardActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupGAppsDetectedUi() {
-        binding.wizardTitle.text = getString(R.string.setup_gapps_detected_title)
-        binding.wizardSubtitle.text = getString(R.string.setup_gapps_detected_desc)
-        binding.infoBoxTitle.text = "GApps Pre-installed"
-        binding.infoBoxDescription.text = "microG installation is disabled to prevent conflicts with Google Play Services."
-        binding.btnPrimaryAction.text = getString(R.string.btn_finish_setup)
-        binding.btnSecondaryAction.visibility = View.GONE
-
-        binding.btnPrimaryAction.setOnClickListener {
-            setResult(Activity.RESULT_OK)
-            finish()
-        }
-    }
 
     private fun setupMicroGDetectedUi() {
         binding.wizardTitle.text = getString(R.string.setup_microg_detected_title)
@@ -103,7 +111,8 @@ class SetupWizardActivity : AppCompatActivity() {
         binding.btnSecondaryAction.text = getString(R.string.btn_skip_microg)
 
         binding.btnSecondaryAction.setOnClickListener {
-            setResult(Activity.RESULT_CANCELED)
+            setAppLauncherEnabled(false)
+            setResult(Activity.RESULT_OK)
             finish()
         }
 
@@ -165,6 +174,9 @@ class SetupWizardActivity : AppCompatActivity() {
                     }
                 }
             }
+
+            // Enable MicroG Updater launcher icon since microG was enabled/installed
+            setAppLauncherEnabled(true)
 
             // Step 3: Complete
             binding.progressContainer.visibility = View.GONE

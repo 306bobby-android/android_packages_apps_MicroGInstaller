@@ -19,12 +19,25 @@ package org.microg.installer.updater.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import org.microg.installer.updater.worker.UpdateWorker
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-            UpdateWorker.scheduleWork(context)
+            if (isMicroGInstalled(context)) {
+                UpdateWorker.scheduleWork(context)
+            }
+        }
+    }
+
+    private fun isMicroGInstalled(context: Context): Boolean {
+        return try {
+            val pInfo = context.packageManager.getPackageInfo("com.google.android.gms", PackageManager.GET_PERMISSIONS)
+            val permissions = pInfo.requestedPermissions ?: arrayOf()
+            permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
         }
     }
 }
