@@ -20,6 +20,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -28,6 +29,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.setupcompat.util.WizardManagerHelper
 import kotlinx.coroutines.launch
 import org.microg.installer.updater.data.ReleaseChecker
 import org.microg.installer.updater.installer.SystemInstaller
@@ -49,8 +51,7 @@ class SetupWizardActivity : AppCompatActivity() {
 
         if (isOfficialGAppsInstalled()) {
             setAppLauncherEnabled(false)
-            setResult(Activity.RESULT_OK)
-            finish()
+            finishSetupWizard(Activity.RESULT_OK)
             return
         }
 
@@ -81,6 +82,20 @@ class SetupWizardActivity : AppCompatActivity() {
         } else {
             setupCleanInstallUi()
         }
+    }
+
+    private fun finishSetupWizard(resultCode: Int = Activity.RESULT_OK) {
+        setResult(resultCode)
+        try {
+            val nextIntent = WizardManagerHelper.getNextIntent(intent, resultCode)
+            if (intent.hasExtra("theme")) {
+                nextIntent.putExtra("theme", intent.getStringExtra("theme"))
+            }
+            startActivity(nextIntent)
+        } catch (e: Exception) {
+            Log.e("SetupWizardActivity", "Could not start next wizard action", e)
+        }
+        finish()
     }
 
     private fun setAppLauncherEnabled(enabled: Boolean) {
@@ -126,8 +141,7 @@ class SetupWizardActivity : AppCompatActivity() {
         btnSecondaryAction.visibility = View.GONE
 
         btnPrimaryAction.setOnClickListener {
-            setResult(Activity.RESULT_OK)
-            finish()
+            finishSetupWizard(Activity.RESULT_OK)
         }
     }
 
@@ -137,8 +151,7 @@ class SetupWizardActivity : AppCompatActivity() {
 
         btnSecondaryAction.setOnClickListener {
             setAppLauncherEnabled(false)
-            setResult(Activity.RESULT_OK)
-            finish()
+            finishSetupWizard(Activity.RESULT_OK)
         }
 
         btnPrimaryAction.setOnClickListener {
@@ -214,8 +227,7 @@ class SetupWizardActivity : AppCompatActivity() {
             btnPrimaryAction.isEnabled = true
             btnPrimaryAction.text = getString(R.string.btn_finish_setup)
             btnPrimaryAction.setOnClickListener {
-                setResult(Activity.RESULT_OK)
-                finish()
+                finishSetupWizard(Activity.RESULT_OK)
             }
         }
     }
