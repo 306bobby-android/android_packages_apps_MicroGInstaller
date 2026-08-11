@@ -55,14 +55,14 @@ class UpdateWorker(
         if (gmsNeedsUpdate || vendingNeedsUpdate || auroraNeedsUpdate) {
             val autoInstall = prefs.getBoolean("auto_install_updates", false)
             if (autoInstall) {
-                if (gmsNeedsUpdate && release.gmsUrl != null) {
-                    SystemInstaller.downloadAndInstall(context, release.gmsUrl, "com.google.android.gms") {}
+                if (gmsNeedsUpdate) {
+                    release.gmsUrl?.let { SystemInstaller.downloadAndInstall(context, it, "com.google.android.gms") {} }
                 }
-                if (vendingNeedsUpdate && release.vendingUrl != null) {
-                    SystemInstaller.downloadAndInstall(context, release.vendingUrl, "com.android.vending") {}
+                if (vendingNeedsUpdate) {
+                    release.vendingUrl?.let { SystemInstaller.downloadAndInstall(context, it, "com.android.vending") {} }
                 }
-                if (auroraNeedsUpdate && release.auroraUrl != null) {
-                    SystemInstaller.downloadAndInstall(context, release.auroraUrl, "com.aurora.store") {}
+                if (auroraNeedsUpdate) {
+                    release.auroraUrl?.let { SystemInstaller.downloadAndInstall(context, it, "com.aurora.store") {} }
                 }
             } else {
                 showNotification(context, release.tagName)
