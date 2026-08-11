@@ -242,11 +242,19 @@ class SetupWizardActivity : AppCompatActivity() {
             // Enable MicroG Updater launcher icon since microG was enabled/installed
             setAppLauncherEnabled(true)
 
-            // Step 3: Complete
+            // Step 4: Complete UI
             progressContainer.visibility = View.GONE
             optionsContainer.visibility = View.VISIBLE
+            cbIncludeAurora.visibility = View.GONE
+            auroraDescText.visibility = View.GONE
+            auroraDivider.visibility = View.GONE
+
             infoBoxTitle.text = getString(R.string.setup_complete_title)
-            infoBoxDescription.text = getString(R.string.setup_complete_desc)
+            if (shouldInstallAurora && release.auroraUrl != null) {
+                infoBoxDescription.text = "• microG GmsCore & Companion active\n• Aurora Store installed\n• Cloud Messaging & Location services ready"
+            } else {
+                infoBoxDescription.text = "• microG GmsCore & Companion active\n• Cloud Messaging & Location services ready"
+            }
             wizardTitle.text = getString(R.string.setup_complete_title)
             wizardSubtitle.text = getString(R.string.setup_complete_desc)
 
