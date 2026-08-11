@@ -99,13 +99,10 @@ class SetupWizardActivity : AppCompatActivity() {
             if (intent.hasExtra("theme")) {
                 nextIntent.putExtra("theme", intent.getStringExtra("theme"))
             }
-            nextIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(nextIntent)
         } catch (e: Exception) {
             Log.e("SetupWizardActivity", "Could not start next wizard action", e)
-            setResult(resultCode)
         }
-        finish()
     }
 
     private fun setAppLauncherEnabled(enabled: Boolean) {
