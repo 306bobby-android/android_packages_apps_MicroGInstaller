@@ -93,7 +93,6 @@ class SetupWizardActivity : AppCompatActivity() {
     }
 
     private fun finishSetupWizard(resultCode: Int = Activity.RESULT_OK) {
-        setResult(resultCode)
         try {
             val nextIntent = WizardManagerHelper.getNextIntent(intent, resultCode)
             if (intent.hasExtra("theme")) {
@@ -102,6 +101,7 @@ class SetupWizardActivity : AppCompatActivity() {
             startActivity(nextIntent)
         } catch (e: Exception) {
             Log.e("SetupWizardActivity", "Could not start next wizard action", e)
+            setResult(resultCode)
         }
         finish()
     }
