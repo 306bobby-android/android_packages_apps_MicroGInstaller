@@ -49,7 +49,7 @@
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="16dp"
                 android:src="@android:drawable/ic_dialog_info"
-                app:tint="?attr/colorPrimary" />
+                app:tint="?android:attr/colorAccent" />
 
             <!-- Title & Subtitle -->
             <TextView
@@ -57,8 +57,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/setup_wizard_title"
-                android:textAppearance="@style/TextAppearance.Material3.HeadlineMedium"
-                android:textColor="?attr/colorOnBackground"
+                android:textSize="22sp"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textAlignment="center"
                 android:textStyle="bold" />
 
@@ -68,8 +68,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="@string/setup_wizard_subtitle"
-                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="14sp"
+                android:textColor="?android:attr/textColorSecondary"
                 android:textAlignment="center" />
 
             <!-- Main Content Area -->
@@ -86,8 +86,8 @@
                     android:layout_height="wrap_content"
                     app:cardCornerRadius="20dp"
                     app:cardElevation="2dp"
-                    app:cardBackgroundColor="?attr/colorSurface"
-                    app:strokeColor="?attr/colorOutline"
+                    app:cardBackgroundColor="?android:attr/colorBackground"
+                    app:strokeColor="?android:attr/textColorSecondary"
                     app:strokeWidth="1dp">
 
                     <LinearLayout
@@ -101,8 +101,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Why microG?"
-                            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-                            android:textColor="?attr/colorOnSurface"
+                            android:textSize="16sp"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:textStyle="bold" />
 
                         <TextView
@@ -111,8 +111,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:text="• UnifiedNLP location services\n• Google Cloud Messaging (Push Notifications)\n• Google Play Store compatibility\n• Optimized battery life and zero tracking"
-                            android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
-                            android:textColor="?attr/colorOnSurfaceVariant" />
+                            android:textSize="14sp"
+                            android:textColor="?android:attr/textColorSecondary" />
 
                         <View
                             android:id="@+id/auroraDivider"
@@ -120,7 +120,8 @@
                             android:layout_height="1dp"
                             android:layout_marginTop="16dp"
                             android:layout_marginBottom="16dp"
-                            android:background="?attr/colorOutlineVariant" />
+                            android:background="?android:attr/textColorSecondary"
+                            android:alpha="0.2" />
 
                         <com.google.android.material.checkbox.MaterialCheckBox
                             android:id="@+id/cbIncludeAurora"
@@ -128,8 +129,8 @@
                             android:layout_height="wrap_content"
                             android:checked="true"
                             android:text="@string/setup_include_aurora_title"
-                            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
-                            android:textColor="?attr/colorOnSurface" />
+                            android:textSize="15sp"
+                            android:textColor="?android:attr/textColorPrimary" />
 
                         <TextView
                             android:id="@+id/auroraDescText"
@@ -137,8 +138,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="32dp"
                             android:text="@string/setup_include_aurora_desc"
-                            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                            android:textColor="?attr/colorOnSurfaceVariant" />
+                            android:textSize="13sp"
+                            android:textColor="?android:attr/textColorSecondary" />
 
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -167,8 +168,9 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="20dp"
                         android:text="@string/setup_installing"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textAppearance="@style/TextAppearance.Material3.TitleSmall" />
+                        android:textSize="15sp"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textStyle="bold" />
 
                 </LinearLayout>
 
@@ -192,8 +194,7 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="@string/btn_install_microg"
-            app:cornerRadius="16dp"
-            style="@style/Widget.Material3.Button" />
+            app:cornerRadius="16dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSecondaryAction"
@@ -202,7 +203,7 @@
             android:layout_marginTop="8dp"
             android:text="@string/btn_skip_microg"
             app:cornerRadius="16dp"
-            style="@style/Widget.Material3.Button.TextButton" />
+            style="@style/Widget.MaterialComponents.Button.TextButton" />
 
     </LinearLayout>
 
