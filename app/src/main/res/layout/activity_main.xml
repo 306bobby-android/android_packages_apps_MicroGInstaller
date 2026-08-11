@@ -20,7 +20,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/md_theme_light_background"
+    android:background="?android:attr/colorBackground"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.AppBarLayout

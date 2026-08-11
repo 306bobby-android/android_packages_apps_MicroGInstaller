@@ -24,6 +24,8 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
@@ -53,6 +55,13 @@ class SetupWizardActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_setup_wizard)
+
+        val rootLayout = findViewById<View>(R.id.wizardRootLayout)
+        ViewCompat.setOnApplyWindowInsetsListener(rootLayout) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
         wizardTitle = findViewById(R.id.wizardTitle)
         wizardSubtitle = findViewById(R.id.wizardSubtitle)
