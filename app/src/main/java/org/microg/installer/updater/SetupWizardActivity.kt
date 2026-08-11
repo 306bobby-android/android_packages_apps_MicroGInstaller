@@ -89,7 +89,8 @@ class SetupWizardActivity : AppCompatActivity() {
             setAppLauncherEnabled(true)
             setupMicroGDetectedUi()
         } else {
-            setupCleanInstallUi()
+            val shouldInstallAurora = intent.getBooleanExtra("include_aurora", true)
+            startMicroGInstallation(shouldInstallAurora)
         }
     }
 
@@ -148,22 +149,7 @@ class SetupWizardActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupCleanInstallUi() {
-        btnPrimaryAction.text = getString(R.string.btn_install_microg)
-        btnSecondaryAction.text = getString(R.string.btn_skip_microg)
-
-        btnSecondaryAction.setOnClickListener {
-            setAppLauncherEnabled(false)
-            finishSetupWizard(Activity.RESULT_OK)
-        }
-
-        btnPrimaryAction.setOnClickListener {
-            startMicroGInstallation()
-        }
-    }
-
-    private fun startMicroGInstallation() {
-        val shouldInstallAurora = cbIncludeAurora.isChecked
+    private fun startMicroGInstallation(shouldInstallAurora: Boolean) {
         optionsContainer.visibility = View.GONE
         progressContainer.visibility = View.VISIBLE
         btnPrimaryAction.isEnabled = false
@@ -177,8 +163,21 @@ class SetupWizardActivity : AppCompatActivity() {
                 Toast.makeText(this@SetupWizardActivity, "Could not fetch microG release from GitHub", Toast.LENGTH_LONG).show()
                 optionsContainer.visibility = View.VISIBLE
                 progressContainer.visibility = View.GONE
+                cbIncludeAurora.visibility = View.GONE
+                auroraDescText.visibility = View.GONE
+                auroraDivider.visibility = View.GONE
+                infoBoxTitle.text = "Installation Paused"
+                infoBoxDescription.text = "Unable to connect to GitHub. You can retry now or finish setup and update microG later."
+                btnPrimaryAction.text = "Retry Installation"
                 btnPrimaryAction.isEnabled = true
+                btnPrimaryAction.setOnClickListener {
+                    startMicroGInstallation(shouldInstallAurora)
+                }
+                btnSecondaryAction.text = "Skip for Now"
                 btnSecondaryAction.visibility = View.VISIBLE
+                btnSecondaryAction.setOnClickListener {
+                    finishSetupWizard(Activity.RESULT_OK)
+                }
                 return@launch
             }
 
@@ -198,8 +197,21 @@ class SetupWizardActivity : AppCompatActivity() {
                 Toast.makeText(this@SetupWizardActivity, "Failed to install microG GmsCore", Toast.LENGTH_LONG).show()
                 optionsContainer.visibility = View.VISIBLE
                 progressContainer.visibility = View.GONE
+                cbIncludeAurora.visibility = View.GONE
+                auroraDescText.visibility = View.GONE
+                auroraDivider.visibility = View.GONE
+                infoBoxTitle.text = "Installation Failed"
+                infoBoxDescription.text = "GmsCore installation failed. You can retry or skip for now."
+                btnPrimaryAction.text = "Retry Installation"
                 btnPrimaryAction.isEnabled = true
+                btnPrimaryAction.setOnClickListener {
+                    startMicroGInstallation(shouldInstallAurora)
+                }
+                btnSecondaryAction.text = "Skip for Now"
                 btnSecondaryAction.visibility = View.VISIBLE
+                btnSecondaryAction.setOnClickListener {
+                    finishSetupWizard(Activity.RESULT_OK)
+                }
                 return@launch
             }
 
