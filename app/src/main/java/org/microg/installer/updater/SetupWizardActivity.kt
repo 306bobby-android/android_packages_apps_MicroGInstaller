@@ -21,18 +21,26 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.launch
 import org.microg.installer.updater.data.ReleaseChecker
-import org.microg.installer.updater.databinding.ActivitySetupWizardBinding
 import org.microg.installer.updater.installer.SystemInstaller
 
 class SetupWizardActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivitySetupWizardBinding
+    private lateinit var wizardTitle: TextView
+    private lateinit var wizardSubtitle: TextView
+    private lateinit var infoBoxTitle: TextView
+    private lateinit var infoBoxDescription: TextView
+    private lateinit var optionsContainer: View
+    private lateinit var progressContainer: View
+    private lateinit var progressText: TextView
+    private lateinit var btnPrimaryAction: MaterialButton
+    private lateinit var btnSecondaryAction: MaterialButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,8 +52,17 @@ class SetupWizardActivity : AppCompatActivity() {
             return
         }
 
-        binding = ActivitySetupWizardBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_setup_wizard)
+
+        wizardTitle = findViewById(R.id.wizardTitle)
+        wizardSubtitle = findViewById(R.id.wizardSubtitle)
+        infoBoxTitle = findViewById(R.id.infoBoxTitle)
+        infoBoxDescription = findViewById(R.id.infoBoxDescription)
+        optionsContainer = findViewById(R.id.optionsContainer)
+        progressContainer = findViewById(R.id.progressContainer)
+        progressText = findViewById(R.id.progressText)
+        btnPrimaryAction = findViewById(R.id.btnPrimaryAction)
+        btnSecondaryAction = findViewById(R.id.btnSecondaryAction)
 
         val isMicroGInstalled = isMicroGInstalled()
 
@@ -91,86 +108,85 @@ class SetupWizardActivity : AppCompatActivity() {
         }
     }
 
-
     private fun setupMicroGDetectedUi() {
-        binding.wizardTitle.text = getString(R.string.setup_microg_detected_title)
-        binding.wizardSubtitle.text = getString(R.string.setup_microg_detected_desc)
-        binding.infoBoxTitle.text = "microG Active"
-        binding.infoBoxDescription.text = "All required microG components are already active on your custom ROM."
-        binding.btnPrimaryAction.text = getString(R.string.btn_finish_setup)
-        binding.btnSecondaryAction.visibility = View.GONE
+        wizardTitle.text = getString(R.string.setup_microg_detected_title)
+        wizardSubtitle.text = getString(R.string.setup_microg_detected_desc)
+        infoBoxTitle.text = "microG Active"
+        infoBoxDescription.text = "All required microG components are already active on your custom ROM."
+        btnPrimaryAction.text = getString(R.string.btn_finish_setup)
+        btnSecondaryAction.visibility = View.GONE
 
-        binding.btnPrimaryAction.setOnClickListener {
+        btnPrimaryAction.setOnClickListener {
             setResult(Activity.RESULT_OK)
             finish()
         }
     }
 
     private fun setupCleanInstallUi() {
-        binding.btnPrimaryAction.text = getString(R.string.btn_install_microg)
-        binding.btnSecondaryAction.text = getString(R.string.btn_skip_microg)
+        btnPrimaryAction.text = getString(R.string.btn_install_microg)
+        btnSecondaryAction.text = getString(R.string.btn_skip_microg)
 
-        binding.btnSecondaryAction.setOnClickListener {
+        btnSecondaryAction.setOnClickListener {
             setAppLauncherEnabled(false)
             setResult(Activity.RESULT_OK)
             finish()
         }
 
-        binding.btnPrimaryAction.setOnClickListener {
+        btnPrimaryAction.setOnClickListener {
             startMicroGInstallation()
         }
     }
 
     private fun startMicroGInstallation() {
-        binding.optionsContainer.visibility = View.GONE
-        binding.progressContainer.visibility = View.VISIBLE
-        binding.btnPrimaryAction.isEnabled = false
-        binding.btnSecondaryAction.visibility = View.GONE
+        optionsContainer.visibility = View.GONE
+        progressContainer.visibility = View.VISIBLE
+        btnPrimaryAction.isEnabled = false
+        btnSecondaryAction.visibility = View.GONE
 
         lifecycleScope.launch {
-            binding.progressText.text = "Checking latest microG release..."
+            progressText.text = "Checking latest microG release..."
             val release = ReleaseChecker.fetchLatestRelease()
 
             if (release == null || release.gmsUrl == null) {
                 Toast.makeText(this@SetupWizardActivity, "Could not fetch microG release from GitHub", Toast.LENGTH_LONG).show()
-                binding.optionsContainer.visibility = View.VISIBLE
-                binding.progressContainer.visibility = View.GONE
-                binding.btnPrimaryAction.isEnabled = true
-                binding.btnSecondaryAction.visibility = View.VISIBLE
+                optionsContainer.visibility = View.VISIBLE
+                progressContainer.visibility = View.GONE
+                btnPrimaryAction.isEnabled = true
+                btnSecondaryAction.visibility = View.VISIBLE
                 return@launch
             }
 
             // Step 1: Install GmsCore
-            binding.progressText.text = getString(R.string.setup_downloading_gms, 0)
+            progressText.text = getString(R.string.setup_downloading_gms, 0)
             val gmsSuccess = SystemInstaller.downloadAndInstall(
                 this@SetupWizardActivity,
                 release.gmsUrl,
                 "com.google.android.gms"
             ) { progress ->
                 runOnUiThread {
-                    binding.progressText.text = getString(R.string.setup_downloading_gms, progress)
+                    progressText.text = getString(R.string.setup_downloading_gms, progress)
                 }
             }
 
             if (!gmsSuccess) {
                 Toast.makeText(this@SetupWizardActivity, "Failed to install microG GmsCore", Toast.LENGTH_LONG).show()
-                binding.optionsContainer.visibility = View.VISIBLE
-                binding.progressContainer.visibility = View.GONE
-                binding.btnPrimaryAction.isEnabled = true
-                binding.btnSecondaryAction.visibility = View.VISIBLE
+                optionsContainer.visibility = View.VISIBLE
+                progressContainer.visibility = View.GONE
+                btnPrimaryAction.isEnabled = true
+                btnSecondaryAction.visibility = View.VISIBLE
                 return@launch
             }
 
             // Step 2: Install Companion/Store (if available)
             if (release.vendingUrl != null) {
-                binding.progressText.text = getString(R.string.setup_downloading_vending, 0)
+                progressText.text = getString(R.string.setup_downloading_vending, 0)
                 SystemInstaller.downloadAndInstall(
                     this@SetupWizardActivity,
                     release.vendingUrl,
                     "com.android.vending"
                 ) { progress ->
                     runOnUiThread {
-                        binding.progressText.text = getString(R.string.setup_downloading_vending, progress)
+                        progressText.text = getString(R.string.setup_downloading_vending, progress)
                     }
                 }
             }
@@ -179,16 +195,16 @@ class SetupWizardActivity : AppCompatActivity() {
             setAppLauncherEnabled(true)
 
             // Step 3: Complete
-            binding.progressContainer.visibility = View.GONE
-            binding.optionsContainer.visibility = View.VISIBLE
-            binding.infoBoxTitle.text = getString(R.string.setup_complete_title)
-            binding.infoBoxDescription.text = getString(R.string.setup_complete_desc)
-            binding.wizardTitle.text = getString(R.string.setup_complete_title)
-            binding.wizardSubtitle.text = getString(R.string.setup_complete_desc)
+            progressContainer.visibility = View.GONE
+            optionsContainer.visibility = View.VISIBLE
+            infoBoxTitle.text = getString(R.string.setup_complete_title)
+            infoBoxDescription.text = getString(R.string.setup_complete_desc)
+            wizardTitle.text = getString(R.string.setup_complete_title)
+            wizardSubtitle.text = getString(R.string.setup_complete_desc)
 
-            binding.btnPrimaryAction.isEnabled = true
-            binding.btnPrimaryAction.text = getString(R.string.btn_finish_setup)
-            binding.btnPrimaryAction.setOnClickListener {
+            btnPrimaryAction.isEnabled = true
+            btnPrimaryAction.text = getString(R.string.btn_finish_setup)
+            btnPrimaryAction.setOnClickListener {
                 setResult(Activity.RESULT_OK)
                 finish()
             }
