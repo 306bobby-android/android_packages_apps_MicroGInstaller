@@ -53,6 +53,9 @@
     <string name="setup_installing">Installing microG components…</string>
     <string name="setup_downloading_gms">Downloading microG GmsCore (%1$d%%)</string>
     <string name="setup_downloading_vending">Downloading microG Companion (%1$d%%)</string>
+    <string name="setup_downloading_aurora">Downloading Aurora Store (%1$d%%)</string>
+    <string name="setup_include_aurora_title">Include Aurora Store</string>
+    <string name="setup_include_aurora_desc">Open-source Google Play Store client to download and update apps anonymously or with your Google account.</string>
     <string name="setup_complete_title">Setup Complete</string>
     <string name="setup_complete_desc">microG has been successfully set up on your device.</string>
     <string name="btn_finish_setup">Finish Setup</string>

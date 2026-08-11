@@ -29,6 +29,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.setupcompat.util.WizardManagerHelper
 import kotlinx.coroutines.launch
 import org.microg.installer.updater.data.ReleaseChecker
@@ -45,6 +46,9 @@ class SetupWizardActivity : AppCompatActivity() {
     private lateinit var progressText: TextView
     private lateinit var btnPrimaryAction: MaterialButton
     private lateinit var btnSecondaryAction: MaterialButton
+    private lateinit var cbIncludeAurora: MaterialCheckBox
+    private lateinit var auroraDescText: TextView
+    private lateinit var auroraDivider: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,6 +77,9 @@ class SetupWizardActivity : AppCompatActivity() {
         progressText = findViewById(R.id.progressText)
         btnPrimaryAction = findViewById(R.id.btnPrimaryAction)
         btnSecondaryAction = findViewById(R.id.btnSecondaryAction)
+        cbIncludeAurora = findViewById(R.id.cbIncludeAurora)
+        auroraDescText = findViewById(R.id.auroraDescText)
+        auroraDivider = findViewById(R.id.auroraDivider)
 
         val isMicroGInstalled = isMicroGInstalled()
 
@@ -137,6 +144,9 @@ class SetupWizardActivity : AppCompatActivity() {
         wizardSubtitle.text = getString(R.string.setup_microg_detected_desc)
         infoBoxTitle.text = "microG Active"
         infoBoxDescription.text = "All required microG components are already active on your custom ROM."
+        cbIncludeAurora.visibility = View.GONE
+        auroraDescText.visibility = View.GONE
+        auroraDivider.visibility = View.GONE
         btnPrimaryAction.text = getString(R.string.btn_finish_setup)
         btnSecondaryAction.visibility = View.GONE
 
@@ -160,6 +170,7 @@ class SetupWizardActivity : AppCompatActivity() {
     }
 
     private fun startMicroGInstallation() {
+        val shouldInstallAurora = cbIncludeAurora.isChecked
         optionsContainer.visibility = View.GONE
         progressContainer.visibility = View.VISIBLE
         btnPrimaryAction.isEnabled = false
@@ -209,6 +220,20 @@ class SetupWizardActivity : AppCompatActivity() {
                 ) { progress ->
                     runOnUiThread {
                         progressText.text = getString(R.string.setup_downloading_vending, progress)
+                    }
+                }
+            }
+
+            // Step 3: Install Aurora Store (if requested & available)
+            if (shouldInstallAurora && release.auroraUrl != null) {
+                progressText.text = getString(R.string.setup_downloading_aurora, 0)
+                SystemInstaller.downloadAndInstall(
+                    this@SetupWizardActivity,
+                    release.auroraUrl,
+                    "com.aurora.store"
+                ) { progress ->
+                    runOnUiThread {
+                        progressText.text = getString(R.string.setup_downloading_aurora, progress)
                     }
                 }
             }
