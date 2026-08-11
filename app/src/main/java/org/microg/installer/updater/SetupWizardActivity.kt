@@ -51,7 +51,7 @@ class SetupWizardActivity : AppCompatActivity() {
     private lateinit var auroraDivider: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(R.style.Theme.MicroGUpdater)
+        setTheme(R.style.Theme_MicroGUpdater)
         super.onCreate(savedInstanceState)
 
         if (isOfficialGAppsInstalled()) {
