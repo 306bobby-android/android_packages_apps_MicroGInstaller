@@ -17,194 +17,290 @@
 package org.microg.installer.updater.installer
 
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageInstaller
-import android.net.Uri
 import android.os.Build
 import android.util.Log
-import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import org.microg.installer.updater.data.ComponentRelease
 import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
+
+sealed class InstallResult {
+    object Success : InstallResult()
+    data class Failure(val reason: String) : InstallResult()
+
+    val succeeded: Boolean get() = this is Success
+    val failureReason: String get() = (this as? Failure)?.reason.orEmpty()
+}
 
 object SystemInstaller {
 
+    private const val TAG = "microGInstaller"
+    private const val RESULT_ACTION = "org.microg.installer.updater.INSTALL_RESULT"
+    private const val USER_AGENT = "microGUpdater-App"
+    private const val MAX_REDIRECTS = 5
+
+    private val requestCodes = AtomicInteger(1)
+
+    /**
+     * Downloads [release] and installs it, suspending until the package manager reports
+     * a final status.
+     *
+     * The returned value reflects the *install*, not the download. The previous version
+     * returned true as soon as bytes had landed on disk, which made every caller's
+     * failure branch unreachable and let the launcher icon be enabled for an install
+     * that never happened.
+     *
+     * [onProgress] is always invoked on the main thread, so callers can touch views.
+     */
     suspend fun downloadAndInstall(
         context: Context,
-        apkUrl: String,
-        packageName: String,
-        onProgress: (Int) -> Unit
-    ): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val destinationFile = File(context.cacheDir, "$packageName.apk")
-            if (destinationFile.exists()) {
-                destinationFile.delete()
+        release: ComponentRelease,
+        onProgress: (Int) -> Unit = {}
+    ): InstallResult {
+        val apkFile = File(context.cacheDir, "${release.packageName}.apk")
+        return try {
+            val downloadError = download(release.url, apkFile) { percent ->
+                withContext(Dispatchers.Main) { onProgress(percent) }
+            }
+            val rejection = if (downloadError != null) {
+                downloadError
+            } else {
+                // Parsing the archive touches disk, so keep it off the caller's thread.
+                withContext(Dispatchers.IO) {
+                    SignatureVerifier.verify(context, apkFile, release.packageName)
+                }
             }
 
+            if (rejection != null) {
+                Log.e(TAG, "Not installing ${release.packageName}: $rejection")
+                InstallResult.Failure(rejection)
+            } else {
+                install(context, apkFile, release.packageName)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Install of ${release.packageName} threw", e)
+            InstallResult.Failure(e.message ?: e.javaClass.simpleName)
+        } finally {
+            // Each APK is tens of megabytes; never leave one behind in the cache.
+            apkFile.delete()
+        }
+    }
+
+    /** Returns null on success, or a human-readable reason on failure. */
+    private suspend fun download(
+        apkUrl: String,
+        destination: File,
+        onProgress: suspend (Int) -> Unit
+    ): String? = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
             var currentUrl = apkUrl
-            var connection: HttpURLConnection
-            var responseCode: Int
             var redirects = 0
 
             while (true) {
-                val url = URL(currentUrl)
-                connection = url.openConnection() as HttpURLConnection
-                connection.instanceFollowRedirects = true
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
+                connection?.disconnect()
+                connection = (URL(currentUrl).openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = true
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("User-Agent", USER_AGENT)
+                }
                 connection.connect()
 
-                responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
-                    responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
-                    responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
-                    responseCode == 307 || responseCode == 308) {
-                    val loc = connection.getHeaderField("Location")
-                    if (loc != null && redirects < 5) {
-                        currentUrl = loc
-                        redirects++
-                        continue
+                val code = connection.responseCode
+                val isRedirect = code == HttpURLConnection.HTTP_MOVED_PERM ||
+                        code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        code == HttpURLConnection.HTTP_SEE_OTHER ||
+                        code == 307 || code == 308
+                // HttpURLConnection declines to follow redirects that change protocol,
+                // which the GitHub and F-Droid CDNs both do.
+                val location = if (isRedirect) connection.getHeaderField("Location") else null
+                if (location == null || redirects >= MAX_REDIRECTS) {
+                    if (code != HttpURLConnection.HTTP_OK) {
+                        return@withContext "Download failed with HTTP $code"
+                    }
+                    break
+                }
+                currentUrl = URL(URL(currentUrl), location).toString()
+                redirects++
+            }
+
+            val active = connection!!
+            val expectedLength = active.contentLengthLong
+            var total = 0L
+            var lastPercent = -1
+
+            active.inputStream.use { input ->
+                destination.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count == -1) break
+                        output.write(buffer, 0, count)
+                        total += count
+                        if (expectedLength > 0) {
+                            val percent = (total * 100 / expectedLength).toInt()
+                            if (percent != lastPercent) {
+                                lastPercent = percent
+                                onProgress(percent)
+                            }
+                        }
                     }
                 }
-                break
             }
 
-            if (responseCode != 200) {
-                Log.e("microGInstaller", "Download failed with HTTP code $responseCode")
-                return@withContext false
+            if (expectedLength > 0 && total != expectedLength) {
+                return@withContext "Download truncated at $total of $expectedLength bytes"
             }
-
-            val fileLength = connection.contentLength
-            val inputStream: InputStream = connection.inputStream
-            val outputStream = FileOutputStream(destinationFile)
-
-            val data = ByteArray(4096)
-            var total: Long = 0
-            var count: Int
-            while (inputStream.read(data).also { count = it } != -1) {
-                total += count.toLong()
-                if (fileLength > 0) {
-                    onProgress((total * 100 / fileLength).toInt())
-                }
-                outputStream.write(data, 0, count)
-            }
-
-            outputStream.flush()
-            outputStream.close()
-            inputStream.close()
-
-            val installed = installApk(context, destinationFile, packageName)
-            if (!installed) {
-                fallbackInstallIntent(context, destinationFile)
-            }
-            true
+            null
         } catch (e: Exception) {
-            e.printStackTrace()
-            false
+            Log.e(TAG, "Download of $apkUrl failed", e)
+            e.message ?: "Download failed"
+        } finally {
+            connection?.disconnect()
         }
     }
 
-    private fun installApk(context: Context, apkFile: File, packageName: String): Boolean {
-        // 1. Try non-blocking silent shell pm install
-        if (installSilentlyViaPm(apkFile)) {
-            Log.d("microGInstaller", "Silent pm install succeeded for $packageName")
-            return true
-        }
+    private suspend fun install(
+        context: Context,
+        apkFile: File,
+        packageName: String
+    ): InstallResult {
+        val appContext = context.applicationContext
+        val installer = appContext.packageManager.packageInstaller
 
-        // 2. Try privileged PackageInstaller session API
-        return installViaPackageInstaller(context, apkFile, packageName)
-    }
-
-    private fun installSilentlyViaPm(apkFile: File): Boolean {
-        val commands = arrayOf(
-            arrayOf("su", "-c", "pm install -r -d --user 0 \"${apkFile.absolutePath}\""),
-            arrayOf("su", "0", "pm", "install", "-r", "-d", apkFile.absolutePath)
-        )
-
-        for (cmd in commands) {
+        // Staging copies the whole APK, so it must not run on the caller's thread.
+        val sessionId = withContext(Dispatchers.IO) {
             try {
-                val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
-                val completed = process.waitFor(5, TimeUnit.SECONDS)
-                if (completed) {
-                    val output = process.inputStream.bufferedReader().readText()
-                    if (process.exitValue() == 0 || output.contains("Success", ignoreCase = true)) {
-                        return true
+                val params = PackageInstaller.SessionParams(
+                    PackageInstaller.SessionParams.MODE_FULL_INSTALL
+                ).apply {
+                    setAppPackageName(packageName)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        setRequireUserAction(
+                            PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED
+                        )
                     }
-                } else {
-                    process.destroyForcibly()
                 }
-            } catch (_: Exception) {}
+                val id = installer.createSession(params)
+                installer.openSession(id).use { session ->
+                    session.openWrite(packageName, 0, apkFile.length()).use { output ->
+                        apkFile.inputStream().use { input -> input.copyTo(output) }
+                        session.fsync(output)
+                    }
+                }
+                id
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to stage session for $packageName", e)
+                -1
+            }
         }
-        return false
+
+        if (sessionId == -1) {
+            return InstallResult.Failure("Could not stage install session")
+        }
+
+        return awaitCommit(appContext, installer, sessionId, packageName)
     }
 
-    private fun installViaPackageInstaller(context: Context, apkFile: File, packageName: String): Boolean {
-        val packageInstaller = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-        params.setAppPackageName(packageName)
+    /**
+     * Commits the staged session and waits for its status broadcast.
+     *
+     * The receiver is registered at runtime against a per-session action. The status
+     * PendingIntent previously pointed at a receiver class that was never declared in
+     * the manifest, so no result was ever delivered anywhere.
+     */
+    private suspend fun awaitCommit(
+        appContext: Context,
+        installer: PackageInstaller,
+        sessionId: Int,
+        packageName: String
+    ): InstallResult = suspendCancellableCoroutine { continuation ->
+        val action = "$RESULT_ACTION.$packageName.$sessionId"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context, intent: Intent) {
+                val status = intent.getIntExtra(
+                    PackageInstaller.EXTRA_STATUS,
+                    PackageInstaller.STATUS_FAILURE
+                )
+                val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+
+                if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                    // Not terminal: confirm, then wait for the real status to arrive.
+                    val confirmation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
+                    }
+                    if (confirmation == null) {
+                        finish(InstallResult.Failure("Confirmation required but not provided"))
+                    } else {
+                        confirmation.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        runCatching { appContext.startActivity(confirmation) }
+                            .onFailure { finish(InstallResult.Failure("Cannot confirm install")) }
+                    }
+                    return
+                }
+
+                if (status == PackageInstaller.STATUS_SUCCESS) {
+                    Log.d(TAG, "Installed $packageName")
+                    finish(InstallResult.Success)
+                } else {
+                    Log.e(TAG, "Install of $packageName failed: $message (status $status)")
+                    finish(InstallResult.Failure(message ?: "Install failed with status $status"))
+                }
+            }
+
+            private fun finish(result: InstallResult) {
+                runCatching { appContext.unregisterReceiver(this) }
+                if (continuation.isActive) continuation.resume(result)
+            }
         }
 
-        var sessionId = -1
+        ContextCompat.registerReceiver(
+            appContext,
+            receiver,
+            IntentFilter(action),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        continuation.invokeOnCancellation {
+            runCatching { appContext.unregisterReceiver(receiver) }
+            runCatching { installer.abandonSession(sessionId) }
+        }
+
         try {
-            sessionId = packageInstaller.createSession(params)
-            val session = packageInstaller.openSession(sessionId)
-
-            session.openWrite(packageName, 0, apkFile.length()).use { out ->
-                apkFile.inputStream().use { inp ->
-                    inp.copyTo(out)
-                }
-                session.fsync(out)
-            }
-
-            val intent = Intent(context, InstallerResultReceiver::class.java).apply {
-                putExtra("target_package_name", packageName)
-            }
+            val statusIntent = Intent(action).setPackage(appContext.packageName)
             val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                sessionId,
-                intent,
+                appContext,
+                requestCodes.getAndIncrement(),
+                statusIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
-
-            session.commit(pendingIntent.intentSender)
-            session.close()
-            return true
-        } catch (e: Exception) {
-            if (sessionId != -1) {
-                try {
-                    packageInstaller.abandonSession(sessionId)
-                } catch (_: Exception) {}
+            installer.openSession(sessionId).use { session ->
+                session.commit(pendingIntent.intentSender)
             }
-            e.printStackTrace()
-            return false
-        }
-    }
-
-    private fun fallbackInstallIntent(context: Context, apkFile: File) {
-        try {
-            val apkUri: Uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.provider",
-                apkFile
-            )
-            val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(apkUri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(installIntent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to commit session for $packageName", e)
+            runCatching { installer.abandonSession(sessionId) }
+            runCatching { appContext.unregisterReceiver(receiver) }
+            if (continuation.isActive) {
+                continuation.resume(
+                    InstallResult.Failure(e.message ?: "Could not commit install session")
+                )
+            }
         }
     }
 }

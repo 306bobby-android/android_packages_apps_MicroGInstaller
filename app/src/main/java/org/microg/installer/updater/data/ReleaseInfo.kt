@@ -16,12 +16,47 @@
 
 package org.microg.installer.updater.data
 
+/**
+ * A single installable component resolved from an upstream release feed.
+ *
+ * Every component carries its own version. The microG release tag tracks GmsCore only:
+ * a v0.3.15.250932 release ships com.google.android.gms-250932030.apk next to
+ * com.android.vending-84022630.apk, so the Companion cannot be versioned off the tag.
+ */
+data class ComponentRelease(
+    val packageName: String,
+    val url: String,
+    val versionName: String?,
+    /** Upstream version code, or null when the feed does not expose one (GsfProxy). */
+    val versionCode: Long?
+) {
+    /** Human-readable version for the UI, preferring a real version name. */
+    val displayVersion: String
+        get() = versionName ?: versionCode?.toString() ?: "N/A"
+}
+
 data class ReleaseInfo(
     val tagName: String,
-    val gmsUrl: String?,
-    val gmsVersionName: String?,
-    val vendingUrl: String?,
-    val vendingVersionName: String?,
-    val auroraUrl: String? = null,
-    val auroraVersionName: String? = null
-)
+    val gms: ComponentRelease?,
+    val vending: ComponentRelease?,
+    val aurora: ComponentRelease?,
+    val gsf: ComponentRelease?
+) {
+    fun forPackage(packageName: String): ComponentRelease? = when (packageName) {
+        PACKAGE_GMS -> gms
+        PACKAGE_VENDING -> vending
+        PACKAGE_AURORA -> aurora
+        PACKAGE_GSF -> gsf
+        else -> null
+    }
+
+    companion object {
+        const val PACKAGE_GMS = "com.google.android.gms"
+        const val PACKAGE_VENDING = "com.android.vending"
+        const val PACKAGE_AURORA = "com.aurora.store"
+        const val PACKAGE_GSF = "com.google.android.gsf"
+
+        /** Shipped as a ROM prebuilt, never downloaded. */
+        const val PACKAGE_AURORA_SERVICES = "com.aurora.services"
+    }
+}

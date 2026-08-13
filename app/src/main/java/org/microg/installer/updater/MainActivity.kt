@@ -16,14 +16,18 @@
 
 package org.microg.installer.updater
 
+import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -31,8 +35,9 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.microg.installer.updater.data.ComponentRelease
+import org.microg.installer.updater.data.InstalledPackages
 import org.microg.installer.updater.data.ReleaseChecker
 import org.microg.installer.updater.data.ReleaseInfo
 import org.microg.installer.updater.installer.SystemInstaller
@@ -40,80 +45,93 @@ import org.microg.installer.updater.worker.UpdateWorker
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var toolbar: MaterialToolbar
+    /** Binds one included component_card to the package it tracks. */
+    private inner class ComponentCard(
+        root: View,
+        val packageName: String,
+        titleRes: Int,
+        packageRes: Int
+    ) {
+        val installedVer: TextView = root.findViewById(R.id.installedVer)
+        val latestVer: TextView = root.findViewById(R.id.latestVer)
+        val button: MaterialButton = root.findViewById(R.id.btnAction)
+
+        init {
+            root.findViewById<TextView>(R.id.componentTitle).setText(titleRes)
+            root.findViewById<TextView>(R.id.componentPackage).setText(packageRes)
+        }
+    }
+
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var statusCard: MaterialCardView
     private lateinit var statusIcon: ImageView
     private lateinit var statusTitle: TextView
     private lateinit var statusSubtitle: TextView
-    private lateinit var gmsInstalledVer: TextView
-    private lateinit var gmsLatestVer: TextView
-    private lateinit var vendingInstalledVer: TextView
-    private lateinit var vendingLatestVer: TextView
-    private lateinit var auroraInstalledVer: TextView
-    private lateinit var auroraLatestVer: TextView
-    private lateinit var btnUpdateGms: MaterialButton
-    private lateinit var btnUpdateVending: MaterialButton
-    private lateinit var btnUpdateAurora: MaterialButton
-    private lateinit var btnCheckNow: MaterialButton
+    private lateinit var cards: List<ComponentCard>
 
     private var currentRelease: ReleaseInfo? = null
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        toolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(findViewById<MaterialToolbar>(R.id.toolbar))
+
         swipeRefresh = findViewById(R.id.swipeRefresh)
         statusCard = findViewById(R.id.statusCard)
         statusIcon = findViewById(R.id.statusIcon)
         statusTitle = findViewById(R.id.statusTitle)
         statusSubtitle = findViewById(R.id.statusSubtitle)
-        gmsInstalledVer = findViewById(R.id.gmsInstalledVer)
-        gmsLatestVer = findViewById(R.id.gmsLatestVer)
-        vendingInstalledVer = findViewById(R.id.vendingInstalledVer)
-        vendingLatestVer = findViewById(R.id.vendingLatestVer)
-        auroraInstalledVer = findViewById(R.id.auroraInstalledVer)
-        auroraLatestVer = findViewById(R.id.auroraLatestVer)
-        btnUpdateGms = findViewById(R.id.btnUpdateGms)
-        btnUpdateVending = findViewById(R.id.btnUpdateVending)
-        btnUpdateAurora = findViewById(R.id.btnUpdateAurora)
-        btnCheckNow = findViewById(R.id.btnCheckNow)
 
-        setSupportActionBar(toolbar)
+        cards = listOf(
+            ComponentCard(
+                findViewById(R.id.gmsCard),
+                ReleaseInfo.PACKAGE_GMS,
+                R.string.gmscore_title,
+                R.string.gmscore_package
+            ),
+            ComponentCard(
+                findViewById(R.id.vendingCard),
+                ReleaseInfo.PACKAGE_VENDING,
+                R.string.vending_title,
+                R.string.vending_package
+            ),
+            ComponentCard(
+                findViewById(R.id.gsfCard),
+                ReleaseInfo.PACKAGE_GSF,
+                R.string.gsf_title,
+                R.string.gsf_package
+            ),
+            ComponentCard(
+                findViewById(R.id.auroraCard),
+                ReleaseInfo.PACKAGE_AURORA,
+                R.string.aurora_title,
+                R.string.aurora_package
+            )
+        )
 
-        swipeRefresh.setOnRefreshListener {
-            checkForUpdates()
-        }
-
-        btnCheckNow.setOnClickListener {
-            checkForUpdates()
-        }
-
-        btnUpdateGms.setOnClickListener {
-            val url = currentRelease?.gmsUrl
-            if (url != null) {
-                installComponent(url, "com.google.android.gms", btnUpdateGms)
+        cards.forEach { card ->
+            card.button.setOnClickListener {
+                currentRelease?.forPackage(card.packageName)?.let { install(card, it) }
             }
         }
 
-        btnUpdateVending.setOnClickListener {
-            val url = currentRelease?.vendingUrl
-            if (url != null) {
-                installComponent(url, "com.android.vending", btnUpdateVending)
-            }
-        }
+        swipeRefresh.setOnRefreshListener { checkForUpdates() }
+        findViewById<MaterialButton>(R.id.btnCheckNow).setOnClickListener { checkForUpdates() }
 
-        btnUpdateAurora.setOnClickListener {
-            val url = currentRelease?.auroraUrl
-            if (url != null) {
-                installComponent(url, "com.aurora.store", btnUpdateAurora)
-            }
-        }
-
+        requestNotificationPermissionIfNeeded()
         UpdateWorker.scheduleWork(this)
-        refreshInstalledVersions()
         checkForUpdates()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Versions can change while the activity is backgrounded, e.g. a background
+        // auto-install completing.
+        refreshInstalledVersions()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -131,28 +149,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun refreshInstalledVersions() {
-        val gmsVer = getInstalledVersion("com.google.android.gms") ?: "Not installed"
-        val vendingVer = getInstalledVersion("com.android.vending") ?: "Not installed"
-        val auroraVer = getInstalledVersion("com.aurora.store") ?: "Not installed"
-
-        gmsInstalledVer.text = getString(R.string.installed_version, gmsVer)
-        vendingInstalledVer.text = getString(R.string.installed_version, vendingVer)
-        auroraInstalledVer.text = getString(R.string.installed_version, auroraVer)
+    /**
+     * POST_NOTIFICATIONS is a runtime permission from API 33 and is not granted to
+     * privileged apps automatically, so without this the update notification -- the only
+     * prompt in the default configuration -- is dropped silently.
+     */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
-    private fun getInstalledVersion(packageName: String): String? {
-        return try {
-            val pInfo = packageManager.getPackageInfo(packageName, 0)
-            pInfo.versionName
-        } catch (_: PackageManager.NameNotFoundException) {
-            null
+    private fun refreshInstalledVersions() {
+        cards.forEach { card ->
+            val installed = InstalledPackages.get(this, card.packageName)
+            card.installedVer.text = getString(
+                R.string.installed_version,
+                installed?.displayVersion ?: getString(R.string.version_not_installed)
+            )
         }
     }
 
     private fun checkForUpdates() {
         swipeRefresh.isRefreshing = true
         statusTitle.text = getString(R.string.status_checking)
+        statusSubtitle.text = getString(R.string.status_checking_desc)
 
         lifecycleScope.launch {
             val release = ReleaseChecker.fetchLatestRelease()
@@ -160,86 +186,91 @@ class MainActivity : AppCompatActivity() {
             currentRelease = release
 
             if (release == null) {
-                statusTitle.text = "Failed to connect"
-                statusSubtitle.text = "Could not check component releases."
-                Toast.makeText(this@MainActivity, "Failed to check release updates", Toast.LENGTH_SHORT).show()
+                applyStatus(R.string.status_failed, R.string.status_failed_desc, R.color.status_amber, R.color.status_amber_bg)
+                Toast.makeText(this@MainActivity, R.string.toast_check_failed, Toast.LENGTH_SHORT).show()
                 return@launch
             }
 
-            gmsLatestVer.text = getString(R.string.latest_version, release.gmsVersionName ?: "N/A")
-            vendingLatestVer.text = getString(R.string.latest_version, release.vendingVersionName ?: "N/A")
-            auroraLatestVer.text = getString(R.string.latest_version, release.auroraVersionName ?: "N/A")
+            refreshInstalledVersions()
 
-            val gmsInstalled = getInstalledVersion("com.google.android.gms")
-            val vendingInstalled = getInstalledVersion("com.android.vending")
-            val auroraInstalled = getInstalledVersion("com.aurora.store")
+            // A component that was never installed is offered, not reported as an
+            // update. Counting absent optional components here would leave the banner
+            // permanently amber for anyone who declined GSF or Aurora Store.
+            var anyInstalledOutdated = false
+            cards.forEach { card ->
+                val candidate = release.forPackage(card.packageName)
+                val installed = InstalledPackages.get(this@MainActivity, card.packageName)
 
-            val gmsNeedsUpdate = release.gmsUrl != null && (gmsInstalled == null || gmsInstalled != release.gmsVersionName)
-            val vendingNeedsUpdate = release.vendingUrl != null && (vendingInstalled == null || vendingInstalled != release.vendingVersionName)
-            val auroraNeedsUpdate = release.auroraUrl != null && (auroraInstalled == null || auroraInstalled != release.auroraVersionName)
+                card.latestVer.text = getString(
+                    R.string.latest_version,
+                    candidate?.displayVersion ?: "N/A"
+                )
 
-            if (gmsNeedsUpdate) {
-                btnUpdateGms.isEnabled = true
-                btnUpdateGms.text = if (gmsInstalled == null) getString(R.string.btn_install) else getString(R.string.btn_update)
-            } else {
-                btnUpdateGms.isEnabled = false
-                btnUpdateGms.text = getString(R.string.btn_up_to_date)
+                val actionable = InstalledPackages.needsUpdate(installed, candidate)
+                card.button.isEnabled = actionable
+                card.button.setText(
+                    when {
+                        !actionable -> R.string.btn_up_to_date
+                        installed == null -> R.string.btn_install
+                        else -> R.string.btn_update
+                    }
+                )
+                if (actionable && installed != null) anyInstalledOutdated = true
             }
 
-            if (vendingNeedsUpdate) {
-                btnUpdateVending.isEnabled = true
-                btnUpdateVending.text = if (vendingInstalled == null) getString(R.string.btn_install) else getString(R.string.btn_update)
+            if (anyInstalledOutdated) {
+                applyStatus(
+                    R.string.status_update_available,
+                    R.string.status_update_available_desc,
+                    R.color.status_amber,
+                    R.color.status_amber_bg
+                )
             } else {
-                btnUpdateVending.isEnabled = false
-                btnUpdateVending.text = getString(R.string.btn_up_to_date)
-            }
-
-            if (auroraNeedsUpdate) {
-                btnUpdateAurora.isEnabled = true
-                btnUpdateAurora.text = if (auroraInstalled == null) getString(R.string.btn_install) else getString(R.string.btn_update)
-            } else {
-                btnUpdateAurora.isEnabled = false
-                btnUpdateAurora.text = getString(R.string.btn_up_to_date)
-            }
-
-            if (gmsNeedsUpdate || vendingNeedsUpdate || auroraNeedsUpdate) {
-                statusTitle.text = getString(R.string.status_update_available)
-                statusSubtitle.text = "New component updates are available."
-                statusCard.setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.status_amber_bg))
-                statusTitle.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_amber))
-                statusIcon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.status_amber))
-            } else {
-                statusTitle.text = getString(R.string.status_up_to_date)
-                statusSubtitle.text = "Installed microG & Aurora Store components are up to date."
-                statusCard.setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.status_green_bg))
-                statusTitle.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_green))
-                statusIcon.setColorFilter(ContextCompat.getColor(this@MainActivity, R.color.status_green))
+                applyStatus(
+                    R.string.status_up_to_date,
+                    R.string.status_up_to_date_desc,
+                    R.color.status_green,
+                    R.color.status_green_bg
+                )
             }
         }
     }
 
-    private fun installComponent(url: String, packageName: String, button: MaterialButton) {
-        button.isEnabled = false
-        button.text = "Downloading..."
+    private fun applyStatus(titleRes: Int, subtitleRes: Int, colorRes: Int, backgroundRes: Int) {
+        val accent = ContextCompat.getColor(this, colorRes)
+        statusTitle.setText(titleRes)
+        statusSubtitle.setText(subtitleRes)
+        statusTitle.setTextColor(accent)
+        statusIcon.setColorFilter(accent)
+        statusCard.setCardBackgroundColor(ContextCompat.getColor(this, backgroundRes))
+    }
+
+    private fun install(card: ComponentCard, release: ComponentRelease) {
+        card.button.isEnabled = false
+        card.button.setText(R.string.btn_downloading)
 
         lifecycleScope.launch {
-            val success = SystemInstaller.downloadAndInstall(this@MainActivity, url, packageName) { progress ->
-                runOnUiThread {
-                    button.text = "$progress%"
-                }
+            val result = SystemInstaller.downloadAndInstall(this@MainActivity, release) { percent ->
+                card.button.text = getString(R.string.btn_download_percent, percent)
             }
 
-            if (success) {
-                button.text = "Installing..."
-                Toast.makeText(this@MainActivity, "Installation submitted", Toast.LENGTH_SHORT).show()
-                delay(3500)
-                refreshInstalledVersions()
-                checkForUpdates()
+            if (result.succeeded) {
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.toast_install_succeeded, release.packageName),
+                    Toast.LENGTH_SHORT
+                ).show()
             } else {
-                Toast.makeText(this@MainActivity, "Installation failed", Toast.LENGTH_SHORT).show()
-                button.isEnabled = true
-                button.text = getString(R.string.btn_update)
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.toast_install_failed, result.failureReason),
+                    Toast.LENGTH_LONG
+                ).show()
             }
+
+            // Re-derive every button from the freshly installed state rather than
+            // guessing what the label should revert to.
+            checkForUpdates()
         }
     }
 }

@@ -20,12 +20,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?android:attr/colorBackground">
+    android:fitsSystemWindows="true"
+    android:background="?attr/colorSurface">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/md_theme_light_surface"
+        android:background="?attr/colorSurface"
         app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
@@ -34,6 +35,7 @@
             android:layout_height="?attr/actionBarSize"
             app:title="@string/settings_title"
             app:navigationIcon="?attr/homeAsUpIndicator"
+            app:titleTextColor="?attr/colorOnSurface"
             app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -41,48 +43,29 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Preference 1: Auto Check -->
+            <!-- Automatic update checks -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="1dp"
-                app:strokeColor="@color/md_theme_light_outline"
-                app:strokeWidth="1dp">
+                style="@style/Widget.MicroGUpdater.Card">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
+                <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceRow">
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                    <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceText">
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_auto_check_title"
-                            android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceTitle"
+                            android:text="@string/pref_auto_check_title" />
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_auto_check_summary"
-                            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                            android:textColor="@color/md_theme_light_onSurfaceVariant" />
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceSummary"
+                            android:text="@string/pref_auto_check_summary" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
@@ -92,41 +75,44 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Preference 2: Silent Auto Install -->
+            <!-- Check frequency -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="1dp"
-                app:strokeColor="@color/md_theme_light_outline"
-                app:strokeWidth="1dp">
+                android:id="@+id/frequencyRow"
+                style="@style/Widget.MicroGUpdater.Card"
+                android:clickable="true"
+                android:focusable="true">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
+                <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceRow">
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                    <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceText">
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_auto_install_title"
-                            android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceTitle"
+                            android:text="@string/pref_frequency_title" />
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_auto_install_summary"
-                            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                            android:textColor="@color/md_theme_light_onSurfaceVariant" />
+                            android:id="@+id/frequencyValue"
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceSummary"
+                            android:text="@string/pref_frequency_summary" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Silent auto-install -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.MicroGUpdater.Card">
+
+                <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceRow">
+
+                    <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceText">
+
+                        <TextView
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceTitle"
+                            android:text="@string/pref_auto_install_title" />
+
+                        <TextView
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceSummary"
+                            android:text="@string/pref_auto_install_summary" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch
@@ -136,41 +122,21 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Preference 3: Wi-Fi Only -->
+            <!-- Wi-Fi only -->
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="1dp"
-                app:strokeColor="@color/md_theme_light_outline"
-                app:strokeWidth="1dp">
+                style="@style/Widget.MicroGUpdater.Card">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="16dp"
-                    android:gravity="center_vertical">
+                <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceRow">
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                    <LinearLayout style="@style/Widget.MicroGUpdater.PreferenceText">
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_wifi_only_title"
-                            android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceTitle"
+                            android:text="@string/pref_wifi_only_title" />
 
                         <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/pref_wifi_only_summary"
-                            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                            android:textColor="@color/md_theme_light_onSurfaceVariant" />
+                            style="@style/TextAppearance.MicroGUpdater.PreferenceSummary"
+                            android:text="@string/pref_wifi_only_summary" />
                     </LinearLayout>
 
                     <com.google.android.material.materialswitch.MaterialSwitch

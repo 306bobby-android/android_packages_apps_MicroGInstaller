@@ -100,45 +100,20 @@
                             android:id="@+id/infoBoxTitle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Why microG?"
+                            android:text="@string/setup_why_microg_title"
                             android:textSize="16sp"
                             android:textColor="?android:attr/textColorPrimary"
                             android:textStyle="bold" />
 
+                        <!-- Component selection lives in the setup wizard page that
+                             launches this activity; this card only reports state. -->
                         <TextView
                             android:id="@+id/infoBoxDescription"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="• UnifiedNLP location services\n• Google Cloud Messaging (Push Notifications)\n• Google Play Store compatibility\n• Optimized battery life and zero tracking"
+                            android:text="@string/setup_why_microg_desc"
                             android:textSize="14sp"
-                            android:textColor="?android:attr/textColorSecondary" />
-
-                        <View
-                            android:id="@+id/auroraDivider"
-                            android:layout_width="match_parent"
-                            android:layout_height="1dp"
-                            android:layout_marginTop="16dp"
-                            android:layout_marginBottom="16dp"
-                            android:background="?android:attr/textColorSecondary"
-                            android:alpha="0.2" />
-
-                        <com.google.android.material.checkbox.MaterialCheckBox
-                            android:id="@+id/cbIncludeAurora"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:checked="true"
-                            android:text="@string/setup_include_aurora_title"
-                            android:textSize="15sp"
-                            android:textColor="?android:attr/textColorPrimary" />
-
-                        <TextView
-                            android:id="@+id/auroraDescText"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="32dp"
-                            android:text="@string/setup_include_aurora_desc"
-                            android:textSize="13sp"
                             android:textColor="?android:attr/textColorSecondary" />
 
                     </LinearLayout>

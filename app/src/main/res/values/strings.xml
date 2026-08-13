@@ -3,8 +3,13 @@
     <string name="settings_title">Updater Settings</string>
 
     <string name="status_up_to_date">Everything is Up to Date</string>
+    <string name="status_up_to_date_desc">Installed microG and Aurora Store components are up to date.</string>
     <string name="status_update_available">Updates Available</string>
+    <string name="status_update_available_desc">New component updates are available.</string>
     <string name="status_checking">Checking for updates…</string>
+    <string name="status_checking_desc">Pull down or tap below to check latest releases.</string>
+    <string name="status_failed">Failed to Connect</string>
+    <string name="status_failed_desc">Could not reach the component release feeds.</string>
 
     <string name="gmscore_title">microG GmsCore</string>
     <string name="gmscore_package">com.google.android.gms</string>
@@ -12,53 +17,74 @@
     <string name="vending_package">com.android.vending</string>
     <string name="aurora_title">Aurora Store</string>
     <string name="aurora_package">com.aurora.store</string>
+    <string name="gsf_title">microG Services Framework</string>
+    <string name="gsf_package">com.google.android.gsf</string>
 
     <string name="installed_version">Installed: %1$s</string>
     <string name="latest_version">Latest: %1$s</string>
+    <string name="version_not_installed">Not installed</string>
 
     <string name="btn_check_updates">Check for Updates</string>
     <string name="btn_update">Update</string>
     <string name="btn_install">Install</string>
     <string name="btn_up_to_date">Up to Date</string>
     <string name="btn_settings">Settings</string>
+    <string name="btn_downloading">Downloading…</string>
+    <string name="btn_download_percent">%1$d%%</string>
+    <string name="btn_installing">Installing…</string>
 
-    <string name="pref_auto_check_key">auto_check_updates</string>
-    <string name="pref_auto_install_key">auto_install_updates</string>
-    <string name="pref_check_frequency_key">check_frequency_hours</string>
-    <string name="pref_wifi_only_key">wifi_only</string>
+    <string name="toast_check_failed">Failed to check for component updates</string>
+    <string name="toast_install_succeeded">%1$s installed</string>
+    <string name="toast_install_failed">Install failed: %1$s</string>
 
     <string name="pref_auto_check_title">Automatic Update Checks</string>
-    <string name="pref_auto_check_summary">Periodically check GitHub for new microG releases</string>
+    <string name="pref_auto_check_summary">Periodically check for new microG and Aurora Store releases</string>
 
     <string name="pref_auto_install_title">Silent Auto-Update</string>
-    <string name="pref_auto_install_summary">Install updates in background without prompting (requires system privilege)</string>
+    <string name="pref_auto_install_summary">Install updates in the background without prompting</string>
 
     <string name="pref_wifi_only_title">Wi-Fi Only</string>
-    <string name="pref_wifi_only_summary">Only download APK updates when connected to Wi-Fi</string>
+    <string name="pref_wifi_only_summary">Only download updates on an unmetered connection</string>
 
     <string name="pref_frequency_title">Check Frequency</string>
+    <string name="pref_frequency_summary">How often to look for new releases</string>
 
     <string name="notif_channel_id">microg_updates</string>
     <string name="notif_channel_name">microG Updates</string>
     <string name="notif_title">microG Update Available</string>
-    <string name="notif_content">A new version of microG is available on GitHub.</string>
+    <string name="notif_content">Updates for microG / Aurora Store components are available.</string>
 
     <!-- Setup Wizard Strings -->
     <string name="setup_wizard_title">microG Services Setup</string>
-    <string name="setup_wizard_subtitle">Choose whether to install open-source microG Google services</string>
-    <string name="setup_gapps_detected_title">Google Play Services Detected</string>
-    <string name="setup_gapps_detected_desc">Official Google Apps were found on this system.</string>
-    <string name="setup_microg_detected_title">microG Pre-installed</string>
-    <string name="setup_microg_detected_desc">microG components are active on your system.</string>
+    <string name="setup_wizard_subtitle">Setting up open-source microG Google services</string>
+    <string name="setup_why_microg_title">Why microG?</string>
+    <string name="setup_why_microg_desc">• UnifiedNLP location services\n• Google Cloud Messaging (push notifications)\n• Google Play Store compatibility\n• Optimized battery life and zero tracking</string>
+
     <string name="setup_installing">Installing microG components…</string>
+    <string name="setup_checking_release">Checking latest microG release…</string>
     <string name="setup_downloading_gms">Downloading microG GmsCore (%1$d%%)</string>
     <string name="setup_downloading_vending">Downloading microG Companion (%1$d%%)</string>
     <string name="setup_downloading_aurora">Downloading Aurora Store (%1$d%%)</string>
-    <string name="setup_include_aurora_title">Include Aurora Store</string>
-    <string name="setup_include_aurora_desc">Open-source Google Play Store client to download and update apps anonymously or with your Google account.</string>
+    <string name="setup_downloading_gsf">Downloading microG Services Framework (%1$d%%)</string>
+    <string name="setup_enabling_aurora_services">Enabling Aurora Store Companion…</string>
+
+    <string name="setup_paused_title">Installation Paused</string>
+    <string name="setup_paused_desc">Unable to reach the microG release feed. You can retry now or finish setup and install microG later.</string>
+    <string name="setup_failed_title">Installation Failed</string>
+    <string name="setup_failed_desc">GmsCore could not be installed. You can retry now or skip and install it later.</string>
+
     <string name="setup_complete_title">Setup Complete</string>
     <string name="setup_complete_desc">microG has been successfully set up on your device.</string>
+    <string name="setup_bullet">• %1$s</string>
+    <string name="setup_summary_gms">microG GmsCore active</string>
+    <string name="setup_summary_vending">microG Companion installed</string>
+    <string name="setup_summary_gsf">Services Framework installed</string>
+    <string name="setup_summary_aurora">Aurora Store installed</string>
+    <string name="setup_summary_aurora_services">Aurora Store Companion enabled</string>
+
     <string name="btn_finish_setup">Finish Setup</string>
     <string name="btn_install_microg">Install microG</string>
     <string name="btn_skip_microg">Skip microG Setup</string>
+    <string name="btn_retry_install">Retry Installation</string>
+    <string name="btn_skip_for_now">Skip for Now</string>
 </resources>

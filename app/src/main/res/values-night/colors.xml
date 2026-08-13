@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark counterparts to values/colors.xml. Every name there must appear here. -->
+    <color name="primary">#A8C7FA</color>
+    <color name="on_primary">#062E6F</color>
+    <color name="primary_container">#0842A0</color>
+    <color name="on_primary_container">#D3E3FD</color>
+
+    <color name="background">#111418</color>
+    <color name="surface">#1B1F24</color>
+    <color name="on_surface">#E2E2E6</color>
+    <color name="surface_variant">#2A2F36</color>
+    <color name="on_surface_variant">#C3C7CF</color>
+    <color name="outline">#43474E</color>
+
+    <color name="status_green">#7FD68A</color>
+    <color name="status_green_bg">#17321D</color>
+    <color name="status_amber">#FFB77C</color>
+    <color name="status_amber_bg">#3A2716</color>
+</resources>

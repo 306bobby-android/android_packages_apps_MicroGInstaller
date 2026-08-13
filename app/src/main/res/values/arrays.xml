@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="check_frequency_entries">
+        <item>Every 6 hours</item>
+        <item>Every 12 hours</item>
+        <item>Once a day</item>
+        <item>Once a week</item>
+    </string-array>
+
+    <!-- Parallel to check_frequency_entries; stored in prefs as hours. -->
+    <integer-array name="check_frequency_values">
+        <item>6</item>
+        <item>12</item>
+        <item>24</item>
+        <item>168</item>
+    </integer-array>
+</resources>

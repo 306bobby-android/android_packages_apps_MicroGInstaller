@@ -1,24 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#1E88E5</color>
-    <color name="primary_dark">#1565C0</color>
-    <color name="accent">#00E676</color>
+    <!-- Light palette. values-night/colors.xml redefines every one of these. -->
+    <color name="primary">#0B57D0</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#D3E3FD</color>
+    <color name="on_primary_container">#041E49</color>
 
-    <!-- Material3 Palette Tokens -->
-    <color name="md_theme_light_primary">#0061A4</color>
-    <color name="md_theme_light_onPrimary">#FFFFFF</color>
-    <color name="md_theme_light_primaryContainer">#D1E4FF</color>
-    <color name="md_theme_light_onPrimaryContainer">#001D36</color>
-    <color name="md_theme_light_surface">#F8FDFF</color>
-    <color name="md_theme_light_onSurface">#001F25</color>
-    <color name="md_theme_light_surfaceVariant">#DFE2EB</color>
-    <color name="md_theme_light_onSurfaceVariant">#43474E</color>
-    <color name="md_theme_light_background">#F8FDFF</color>
-    <color name="md_theme_light_onBackground">#001F25</color>
-    <color name="md_theme_light_outline">#73777F</color>
+    <!-- Page sits slightly off-white so the cards and app bar read as separate layers. -->
+    <color name="background">#F5F8FC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="on_surface">#101418</color>
+    <color name="surface_variant">#E7ECF4</color>
+    <color name="on_surface_variant">#43474E</color>
+    <color name="outline">#C4C8D0</color>
 
-    <color name="status_green">#2E7D32</color>
-    <color name="status_green_bg">#E8F5E9</color>
-    <color name="status_amber">#EF6C00</color>
-    <color name="status_amber_bg">#FFF3E0</color>
+    <color name="status_green">#146C2E</color>
+    <color name="status_green_bg">#E4F3E7</color>
+    <color name="status_amber">#9A4600</color>
+    <color name="status_amber_bg">#FCEBDD</color>
 </resources>

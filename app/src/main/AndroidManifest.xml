@@ -23,7 +23,10 @@
     <uses-permission android:name="android.permission.INSTALL_PACKAGES" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.DELETE_PACKAGES" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Enables/disables the Aurora Services prebuilt from the setup wizard. -->
+    <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" tools:ignore="ProtectedPermissions" />
+    <!-- Lets the install-confirmation fallback surface from a background receiver. -->
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -68,16 +71,6 @@
             android:exported="false"
             android:label="@string/settings_title"
             android:parentActivityName=".MainActivity" />
-
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="org.microg.installer.updater.provider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
         <receiver
             android:name=".receiver.BootReceiver"

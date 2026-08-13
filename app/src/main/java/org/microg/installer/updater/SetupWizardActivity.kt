@@ -18,25 +18,38 @@ package org.microg.installer.updater
 
 import android.app.Activity
 import android.content.ComponentName
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.checkbox.MaterialCheckBox
-import com.google.android.setupcompat.util.WizardManagerHelper
 import kotlinx.coroutines.launch
+import org.microg.installer.updater.data.ComponentRelease
+import org.microg.installer.updater.data.InstalledPackages
 import org.microg.installer.updater.data.ReleaseChecker
+import org.microg.installer.updater.data.ReleaseInfo
 import org.microg.installer.updater.installer.SystemInstaller
 
 class SetupWizardActivity : AppCompatActivity() {
+
+    companion object {
+        private const val TAG = "microGInstaller"
+
+        const val EXTRA_INCLUDE_AURORA = "include_aurora"
+        const val EXTRA_INCLUDE_GSF = "include_gsf"
+        const val EXTRA_INCLUDE_AURORA_SERVICES = "include_aurora_services"
+    }
+
+    private data class SetupOptions(
+        val includeAurora: Boolean,
+        val includeGsf: Boolean,
+        val includeAuroraServices: Boolean
+    )
 
     private lateinit var wizardTitle: TextView
     private lateinit var wizardSubtitle: TextView
@@ -47,17 +60,19 @@ class SetupWizardActivity : AppCompatActivity() {
     private lateinit var progressText: TextView
     private lateinit var btnPrimaryAction: MaterialButton
     private lateinit var btnSecondaryAction: MaterialButton
-    private lateinit var cbIncludeAurora: MaterialCheckBox
-    private lateinit var auroraDescText: TextView
-    private lateinit var auroraDivider: View
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_MicroGUpdater)
         super.onCreate(savedInstanceState)
 
-        if (isOfficialGAppsInstalled()) {
-            setAppLauncherEnabled(false)
-            finishSetupWizard(Activity.RESULT_OK)
+        // Any pre-existing com.google.android.gms ends setup before it starts. Official
+        // GApps means microG must not be installed at all; an existing microG means this
+        // installer did not put it there, so it must not install anything or claim the
+        // launcher entry. The wizard gates on the same condition and normally skips this
+        // activity outright -- this is the direct-launch backstop.
+        if (InstalledPackages.get(this, ReleaseInfo.PACKAGE_GMS) != null) {
+            Log.d(TAG, "GMS already present, leaving setup untouched")
+            finishSetupWizard()
             return
         }
 
@@ -79,19 +94,13 @@ class SetupWizardActivity : AppCompatActivity() {
         progressText = findViewById(R.id.progressText)
         btnPrimaryAction = findViewById(R.id.btnPrimaryAction)
         btnSecondaryAction = findViewById(R.id.btnSecondaryAction)
-        cbIncludeAurora = findViewById(R.id.cbIncludeAurora)
-        auroraDescText = findViewById(R.id.auroraDescText)
-        auroraDivider = findViewById(R.id.auroraDivider)
 
-        val isMicroGInstalled = isMicroGInstalled()
-
-        if (isMicroGInstalled) {
-            setAppLauncherEnabled(true)
-            setupMicroGDetectedUi()
-        } else {
-            val shouldInstallAurora = intent.getBooleanExtra("include_aurora", true)
-            startMicroGInstallation(shouldInstallAurora)
-        }
+        val options = SetupOptions(
+            includeAurora = intent.getBooleanExtra(EXTRA_INCLUDE_AURORA, true),
+            includeGsf = intent.getBooleanExtra(EXTRA_INCLUDE_GSF, false),
+            includeAuroraServices = intent.getBooleanExtra(EXTRA_INCLUDE_AURORA_SERVICES, false)
+        )
+        startMicroGInstallation(options)
     }
 
     private fun finishSetupWizard(resultCode: Int = Activity.RESULT_OK) {
@@ -99,174 +108,157 @@ class SetupWizardActivity : AppCompatActivity() {
         finish()
     }
 
+    /**
+     * The launcher entry exists only once this installer has actually installed microG.
+     * It is never enabled off a pre-existing install or a download that failed to commit.
+     */
     private fun setAppLauncherEnabled(enabled: Boolean) {
-        val componentName = ComponentName(this, MainActivity::class.java)
         val state = if (enabled) {
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED
         } else {
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         }
-        packageManager.setComponentEnabledSetting(
-            componentName,
-            state,
-            PackageManager.DONT_KILL_APP
-        )
+        runCatching {
+            packageManager.setComponentEnabledSetting(
+                ComponentName(this, MainActivity::class.java),
+                state,
+                PackageManager.DONT_KILL_APP
+            )
+        }.onFailure { Log.w(TAG, "Could not set launcher state", it) }
     }
 
-    private fun isOfficialGAppsInstalled(): Boolean {
-        return try {
-            val pInfo = packageManager.getPackageInfo("com.google.android.gms", PackageManager.GET_PERMISSIONS)
-            val permissions = pInfo.requestedPermissions ?: arrayOf()
-            !permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
+    /**
+     * Aurora Services ships as a privileged ROM prebuilt because it needs INSTALL_PACKAGES
+     * to do anything; it is toggled here rather than downloaded.
+     */
+    private fun setAuroraServicesEnabled(enabled: Boolean) {
+        if (InstalledPackages.get(this, ReleaseInfo.PACKAGE_AURORA_SERVICES) == null) {
+            Log.d(TAG, "Aurora Services prebuilt not present, nothing to toggle")
+            return
         }
-    }
-
-    private fun isMicroGInstalled(): Boolean {
-        return try {
-            val pInfo = packageManager.getPackageInfo("com.google.android.gms", PackageManager.GET_PERMISSIONS)
-            val permissions = pInfo.requestedPermissions ?: arrayOf()
-            permissions.contains("android.permission.FAKE_PACKAGE_SIGNATURE")
-        } catch (_: PackageManager.NameNotFoundException) {
-            false
+        val state = if (enabled) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
         }
+        runCatching {
+            packageManager.setApplicationEnabledSetting(
+                ReleaseInfo.PACKAGE_AURORA_SERVICES,
+                state,
+                0
+            )
+        }.onFailure { Log.w(TAG, "Could not toggle Aurora Services", it) }
     }
 
-    private fun setupMicroGDetectedUi() {
-        wizardTitle.text = getString(R.string.setup_microg_detected_title)
-        wizardSubtitle.text = getString(R.string.setup_microg_detected_desc)
-        infoBoxTitle.text = "microG Active"
-        infoBoxDescription.text = "All required microG components are already active on your custom ROM."
-        cbIncludeAurora.visibility = View.GONE
-        auroraDescText.visibility = View.GONE
-        auroraDivider.visibility = View.GONE
-        btnPrimaryAction.text = getString(R.string.btn_finish_setup)
-        btnSecondaryAction.visibility = View.GONE
-
-        btnPrimaryAction.setOnClickListener {
-            finishSetupWizard(Activity.RESULT_OK)
-        }
-    }
-
-    private fun startMicroGInstallation(shouldInstallAurora: Boolean) {
+    private fun startMicroGInstallation(options: SetupOptions) {
         optionsContainer.visibility = View.GONE
         progressContainer.visibility = View.VISIBLE
         btnPrimaryAction.isEnabled = false
         btnSecondaryAction.visibility = View.GONE
 
         lifecycleScope.launch {
-            progressText.text = "Checking latest microG release..."
+            progressText.text = getString(R.string.setup_checking_release)
             val release = ReleaseChecker.fetchLatestRelease()
 
-            if (release == null || release.gmsUrl == null) {
-                Toast.makeText(this@SetupWizardActivity, "Could not fetch microG release from GitHub", Toast.LENGTH_LONG).show()
-                optionsContainer.visibility = View.VISIBLE
-                progressContainer.visibility = View.GONE
-                cbIncludeAurora.visibility = View.GONE
-                auroraDescText.visibility = View.GONE
-                auroraDivider.visibility = View.GONE
-                infoBoxTitle.text = "Installation Paused"
-                infoBoxDescription.text = "Unable to connect to GitHub. You can retry now or finish setup and update microG later."
-                btnPrimaryAction.text = "Retry Installation"
-                btnPrimaryAction.isEnabled = true
-                btnPrimaryAction.setOnClickListener {
-                    startMicroGInstallation(shouldInstallAurora)
-                }
-                btnSecondaryAction.text = "Skip for Now"
-                btnSecondaryAction.visibility = View.VISIBLE
-                btnSecondaryAction.setOnClickListener {
-                    finishSetupWizard(Activity.RESULT_OK)
-                }
+            if (release?.gms == null) {
+                showRecoverableState(
+                    title = getString(R.string.setup_paused_title),
+                    description = getString(R.string.setup_paused_desc),
+                    options = options
+                )
                 return@launch
             }
 
-            // Step 1: Install GmsCore
-            progressText.text = getString(R.string.setup_downloading_gms, 0)
-            val gmsSuccess = SystemInstaller.downloadAndInstall(
-                this@SetupWizardActivity,
-                release.gmsUrl,
-                "com.google.android.gms"
-            ) { progress ->
-                runOnUiThread {
-                    progressText.text = getString(R.string.setup_downloading_gms, progress)
-                }
+            // GmsCore is the one component that must land for setup to have meant anything.
+            val gmsResult = SystemInstaller.downloadAndInstall(this@SetupWizardActivity, release.gms) {
+                progressText.text = getString(R.string.setup_downloading_gms, it)
             }
-
-            if (!gmsSuccess) {
-                Toast.makeText(this@SetupWizardActivity, "Failed to install microG GmsCore", Toast.LENGTH_LONG).show()
-                optionsContainer.visibility = View.VISIBLE
-                progressContainer.visibility = View.GONE
-                cbIncludeAurora.visibility = View.GONE
-                auroraDescText.visibility = View.GONE
-                auroraDivider.visibility = View.GONE
-                infoBoxTitle.text = "Installation Failed"
-                infoBoxDescription.text = "GmsCore installation failed. You can retry or skip for now."
-                btnPrimaryAction.text = "Retry Installation"
-                btnPrimaryAction.isEnabled = true
-                btnPrimaryAction.setOnClickListener {
-                    startMicroGInstallation(shouldInstallAurora)
-                }
-                btnSecondaryAction.text = "Skip for Now"
-                btnSecondaryAction.visibility = View.VISIBLE
-                btnSecondaryAction.setOnClickListener {
-                    finishSetupWizard(Activity.RESULT_OK)
-                }
+            if (!gmsResult.succeeded) {
+                showRecoverableState(
+                    title = getString(R.string.setup_failed_title),
+                    description = getString(R.string.setup_failed_desc),
+                    options = options
+                )
                 return@launch
             }
 
-            // Step 2: Install Companion/Store (if available)
-            if (release.vendingUrl != null) {
-                progressText.text = getString(R.string.setup_downloading_vending, 0)
-                SystemInstaller.downloadAndInstall(
-                    this@SetupWizardActivity,
-                    release.vendingUrl,
-                    "com.android.vending"
-                ) { progress ->
-                    runOnUiThread {
-                        progressText.text = getString(R.string.setup_downloading_vending, progress)
-                    }
-                }
+            val installed = mutableListOf(getString(R.string.setup_summary_gms))
+
+            if (installComponent(release.vending, R.string.setup_downloading_vending)) {
+                installed.add(getString(R.string.setup_summary_vending))
+            }
+            if (options.includeGsf &&
+                installComponent(release.gsf, R.string.setup_downloading_gsf)
+            ) {
+                installed.add(getString(R.string.setup_summary_gsf))
+            }
+            val auroraInstalled = options.includeAurora &&
+                installComponent(release.aurora, R.string.setup_downloading_aurora)
+            if (auroraInstalled) {
+                installed.add(getString(R.string.setup_summary_aurora))
             }
 
-            // Step 3: Install Aurora Store (if requested & available)
-            if (shouldInstallAurora && release.auroraUrl != null) {
-                progressText.text = getString(R.string.setup_downloading_aurora, 0)
-                SystemInstaller.downloadAndInstall(
-                    this@SetupWizardActivity,
-                    release.auroraUrl,
-                    "com.aurora.store"
-                ) { progress ->
-                    runOnUiThread {
-                        progressText.text = getString(R.string.setup_downloading_aurora, progress)
-                    }
-                }
+            // Reconcile the prebuilt with the choice rather than only ever enabling it.
+            // It ships enabled, so leaving the box unchecked has to actively turn it off
+            // or the checkbox would appear to do nothing. It is also useless on its own,
+            // hence the dependency on Aurora Store having landed.
+            val enableCompanion = auroraInstalled && options.includeAuroraServices
+            if (enableCompanion) {
+                progressText.text = getString(R.string.setup_enabling_aurora_services)
+                installed.add(getString(R.string.setup_summary_aurora_services))
             }
+            setAuroraServicesEnabled(enableCompanion)
 
-            // Enable MicroG Updater launcher icon since microG was enabled/installed
+            // microG is genuinely installed by us at this point, so surface the updater.
             setAppLauncherEnabled(true)
-
-            // Step 4: Complete UI
-            progressContainer.visibility = View.GONE
-            optionsContainer.visibility = View.VISIBLE
-            cbIncludeAurora.visibility = View.GONE
-            auroraDescText.visibility = View.GONE
-            auroraDivider.visibility = View.GONE
-
-            infoBoxTitle.text = getString(R.string.setup_complete_title)
-            if (shouldInstallAurora && release.auroraUrl != null) {
-                infoBoxDescription.text = "• microG GmsCore & Companion active\n• Aurora Store installed\n• Cloud Messaging & Location services ready"
-            } else {
-                infoBoxDescription.text = "• microG GmsCore & Companion active\n• Cloud Messaging & Location services ready"
-            }
-            wizardTitle.text = getString(R.string.setup_complete_title)
-            wizardSubtitle.text = getString(R.string.setup_complete_desc)
-
-            btnPrimaryAction.isEnabled = true
-            btnPrimaryAction.text = getString(R.string.btn_finish_setup)
-            btnPrimaryAction.setOnClickListener {
-                finishSetupWizard(Activity.RESULT_OK)
-            }
+            showCompleteState(installed)
         }
+    }
+
+    /** Best-effort install of a secondary component; failures never block setup. */
+    private suspend fun installComponent(
+        release: ComponentRelease?,
+        progressRes: Int
+    ): Boolean {
+        if (release == null) return false
+        progressText.text = getString(progressRes, 0)
+        val result = SystemInstaller.downloadAndInstall(this, release) {
+            progressText.text = getString(progressRes, it)
+        }
+        if (!result.succeeded) {
+            Log.w(TAG, "Optional component ${release.packageName} did not install: $result")
+        }
+        return result.succeeded
+    }
+
+    private fun showRecoverableState(title: String, description: String, options: SetupOptions) {
+        optionsContainer.visibility = View.VISIBLE
+        progressContainer.visibility = View.GONE
+
+        infoBoxTitle.text = title
+        infoBoxDescription.text = description
+
+        btnPrimaryAction.text = getString(R.string.btn_retry_install)
+        btnPrimaryAction.isEnabled = true
+        btnPrimaryAction.setOnClickListener { startMicroGInstallation(options) }
+
+        btnSecondaryAction.text = getString(R.string.btn_skip_for_now)
+        btnSecondaryAction.visibility = View.VISIBLE
+        btnSecondaryAction.setOnClickListener { finishSetupWizard() }
+    }
+
+    private fun showCompleteState(installed: List<String>) {
+        progressContainer.visibility = View.GONE
+        optionsContainer.visibility = View.VISIBLE
+
+        wizardTitle.text = getString(R.string.setup_complete_title)
+        wizardSubtitle.text = getString(R.string.setup_complete_desc)
+        infoBoxTitle.text = getString(R.string.setup_complete_title)
+        infoBoxDescription.text = installed.joinToString("\n") { getString(R.string.setup_bullet, it) }
+
+        btnPrimaryAction.isEnabled = true
+        btnPrimaryAction.text = getString(R.string.btn_finish_setup)
+        btnPrimaryAction.setOnClickListener { finishSetupWizard() }
+        btnSecondaryAction.visibility = View.GONE
     }
 }

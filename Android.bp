@@ -40,7 +40,6 @@ android_app {
         "androidx.work_work-runtime-ktx",
         "androidx.swiperefreshlayout_swiperefreshlayout",
         "com.google.android.material_material",
-        "setupcompat",
     ],
 
     required: [
