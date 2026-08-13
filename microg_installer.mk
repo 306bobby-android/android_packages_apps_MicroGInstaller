@@ -11,3 +11,11 @@
 PRODUCT_PACKAGES += \
     MicroGInstaller \
     AuroraServices
+
+# Both apps are privileged, and a privileged app requesting a privileged permission
+# that is not in an installed allowlist is a fatal error at boot rather than a runtime
+# denial. The app modules already pull these in via required:, but naming them here as
+# well means a missing allowlist can never be the reason a device fails to boot.
+PRODUCT_PACKAGES += \
+    privapp-permissions-org.microg.installer \
+    privapp-permissions-com.aurora.services
