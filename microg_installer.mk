@@ -4,14 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# Aurora Store Companion is the privileged helper that lets Aurora Store install and
+# update apps without a confirmation dialog. It requires the AuroraServices repository
+# in the tree; a missing checkout is meant to fail the build here rather than silently
+# produce a ROM whose setup wizard hides the option with no explanation.
 PRODUCT_PACKAGES += \
-    MicroGInstaller
-
-# Aurora Store Companion, the privileged helper that lets Aurora Store install and
-# update apps without a confirmation dialog. Built only when the repository is checked
-# out at packages/apps/AuroraServices, so a tree without it still builds; the setup
-# wizard checks for the package at runtime and hides the option when it is absent.
-ifneq ($(wildcard packages/apps/AuroraServices/Android.bp),)
-PRODUCT_PACKAGES += \
+    MicroGInstaller \
     AuroraServices
-endif
